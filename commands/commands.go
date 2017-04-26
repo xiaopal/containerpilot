@@ -101,12 +101,11 @@ func (c *Command) Run(pctx context.Context, bus *events.EventBus) {
 			return
 		}
 		// blocks this goroutine here; if the context gets cancelled
-		// we'll return from Wait() and do all the cleanup
-		if err := c.Cmd.Wait(); err != nil {
+		// we'll return from wait() and do all the cleanup
+		if _, err := c.wait(); err != nil {
 			log.Errorf("%s exited with error: %v", c.Name, err)
 			bus.Publish(events.Event{events.ExitFailed, c.Name})
-			bus.Publish(events.Event{events.Error,
-				fmt.Sprintf("%s: %s", c.Name, err.Error())})
+			bus.Publish(events.Event{events.Error, err.Error()})
 		} else {
 			log.Debugf("%s exited without error", c.Name)
 			bus.Publish(events.Event{events.ExitSuccess, c.Name})
@@ -161,7 +160,7 @@ func (c *Command) RunAndWaitForOutput(pctx context.Context, bus *events.EventBus
 	log.Debugf("%s.Cmd.Output", c.Name)
 	defer log.Debugf("%s.RunAndWaitForOutput end", c.Name)
 	// blocks this goroutine here; if the context gets cancelled
-	// we'll return from Output() and do all the cleanup
+	// we'll return from wait() and do all the cleanup
 	out, err := c.Cmd.Output()
 	if err != nil {
 		log.Errorf("%s exited with error: %v", c.Name, err)
@@ -171,6 +170,24 @@ func (c *Command) RunAndWaitForOutput(pctx context.Context, bus *events.EventBus
 	}
 	bus.Publish(events.Event{events.ExitSuccess, c.Name})
 	return string(out[:])
+}
+
+func (c *Command) wait() (int, error) {
+	waitStatus, err := c.Cmd.Process.Wait()
+	if waitStatus != nil && !waitStatus.Success() {
+		var returnStatus = 1
+		if status, ok := waitStatus.Sys().(syscall.WaitStatus); ok {
+			returnStatus = status.ExitStatus()
+		}
+		return returnStatus, fmt.Errorf("%s: %s", c.Name, waitStatus)
+	} else if err != nil {
+		if err.Error() == errWaitNoChild || err.Error() == errWaitIDNoChild {
+			log.Debugf(err.Error())
+			return 0, nil // process exited cleanly before we hit wait4
+		}
+		return 1, err
+	}
+	return 0, nil
 }
 
 func (c *Command) setUpCmd() {
