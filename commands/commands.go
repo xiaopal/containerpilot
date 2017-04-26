@@ -91,16 +91,16 @@ func RunAndWait(c *Command) (int, error) {
 		fmt.Sprintf("CONTAINERPILOT_%s_PID", strings.ToUpper(c.Name)),
 		fmt.Sprintf("%v", c.Cmd.Process.Pid),
 	)
-	waitStatus, err := c.Cmd.Process.Wait()
-	if waitStatus != nil && !waitStatus.Success() {
-		if status, ok := waitStatus.Sys().(syscall.WaitStatus); ok {
-			log.Debug(err)
-			return status.ExitStatus(), err
-		}
-	} else if err != nil {
-		if err.Error() == errNoChild {
-			log.Debugf(err.Error())
-			return 0, nil // process exited cleanly before we hit wait4
+	err := c.Cmd.Wait()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+				if status.ExitStatus() == 0 {
+					log.Debug(err)
+					return 0, nil
+				}
+				return status.ExitStatus(), err
+			}
 		}
 		log.Errorf("%s exited with error: %v", c.Name, err)
 		return 1, err
@@ -211,13 +211,17 @@ func (c *Command) waitForTimeout() error {
 		defer func() { quit <- 0 }()
 	}
 	log.Debugf("%s.run waiting for PID %d: ", c.Name, cmd.Process.Pid)
-	waitStatus, err := cmd.Process.Wait()
-	if waitStatus != nil && !waitStatus.Success() {
-		return fmt.Errorf("%s exited with error", c.Name)
-	} else if err != nil {
-		if err.Error() == errNoChild {
-			log.Debugf(err.Error())
-			return nil // process exited cleanly before we hit wait4
+
+	err := c.Cmd.Wait()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+				if status.ExitStatus() == 0 {
+					log.Debug(err)
+					return nil // process exited cleanly before we hit wait4
+				}
+				return fmt.Errorf("%s exited with error", c.Name)
+			}
 		}
 		log.Errorf("%s exited with error: %v", c.Name, err)
 		return err

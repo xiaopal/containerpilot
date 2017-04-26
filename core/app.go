@@ -164,7 +164,7 @@ func (a *App) Run() {
 
 	if a.PreStartCmd != nil {
 		// Run the preStart handler, if any, and exit if it returns an error
-		if code, err := commands.RunAndWait(a.PreStartCmd); err != nil {
+		if code, err := commands.RunAndWait(a.PreStartCmd); err != nil || code != 0 {
 			os.Exit(code)
 		}
 	}
