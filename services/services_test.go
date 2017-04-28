@@ -13,11 +13,11 @@ func TestHealthCheck(t *testing.T) {
 	service := &Service{
 		healthCheckCmd: cmd1,
 	}
-	if err := service.CheckHealth(); err != nil {
+	if err := service.CheckHealth(nil); err != nil {
 		t.Errorf("Unexpected error CheckHealth: %s", err)
 	}
 	// Ensure we can run it more than once
-	if err := service.CheckHealth(); err != nil {
+	if err := service.CheckHealth(nil); err != nil {
 		t.Errorf("Unexpected error CheckHealth (x2): %s", err)
 	}
 }
@@ -27,7 +27,7 @@ func TestHealthCheckBad(t *testing.T) {
 	service := &Service{
 		healthCheckCmd: cmd1,
 	}
-	if err := service.CheckHealth(); err == nil {
+	if err := service.CheckHealth(nil); err == nil {
 		t.Errorf("Expected error from CheckHealth but got nil")
 	}
 }

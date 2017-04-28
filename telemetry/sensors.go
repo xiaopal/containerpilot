@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -33,8 +34,8 @@ func (s Sensor) PollTime() time.Duration {
 }
 
 // PollAction implements Pollable for Sensor.
-func (s *Sensor) PollAction() {
-	if metricValue, err := s.observe(); err == nil {
+func (s *Sensor) PollAction(reapLock *sync.RWMutex) {
+	if metricValue, err := s.observe(reapLock); err == nil {
 		s.record(metricValue)
 	} else {
 		log.Errorln(err)
@@ -49,8 +50,8 @@ func (s *Sensor) PollStop() {
 }
 
 // wrapping this func call makes it easier to test
-func (s *Sensor) observe() (string, error) {
-	return commands.RunAndWaitForOutput(s.checkCmd)
+func (s *Sensor) observe(reapLock *sync.RWMutex) (string, error) {
+	return commands.RunAndWaitForOutput(s.checkCmd, reapLock)
 }
 
 func (s Sensor) record(metricValue string) {

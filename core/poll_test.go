@@ -1,6 +1,7 @@
 package core
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -8,7 +9,7 @@ import (
 type DummyPollable struct{}
 
 func (p DummyPollable) PollTime() time.Duration { return time.Duration(1) * time.Second }
-func (p DummyPollable) PollAction() {
+func (p DummyPollable) PollAction(reapLock *sync.RWMutex) {
 	time.Sleep(5 * time.Second)
 	panic("We should never reach this code because the channel should close.")
 }

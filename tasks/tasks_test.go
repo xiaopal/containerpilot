@@ -19,7 +19,7 @@ func poll(task *Task) chan bool {
 		for {
 			select {
 			case <-ticker.C:
-				task.PollAction()
+				task.PollAction(nil)
 			case <-quit:
 				task.PollStop()
 				return

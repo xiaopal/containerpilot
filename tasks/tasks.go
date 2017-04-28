@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -84,6 +85,6 @@ func (t *Task) PollStop() {
 }
 
 // PollAction runs the task
-func (t *Task) PollAction() {
-	commands.RunWithTimeout(t.cmd)
+func (t *Task) PollAction(reapLock *sync.RWMutex) {
+	commands.RunWithTimeout(t.cmd, reapLock)
 }

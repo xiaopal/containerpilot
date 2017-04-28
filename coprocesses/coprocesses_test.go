@@ -35,7 +35,7 @@ func coprocessRunTest(t *testing.T, coprocess *Coprocess, expected []byte) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	coprocess.Start()
+	coprocess.Start(nil)
 
 	// Ensure the task has time to start
 	runtime.Gosched()

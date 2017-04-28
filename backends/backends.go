@@ -2,6 +2,7 @@ package backends
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -20,6 +21,7 @@ type Backend struct {
 	discoveryService discovery.ServiceBackend
 	lastState        interface{}
 	onChangeCmd      *commands.Command
+	reapLock         *sync.RWMutex
 }
 
 // NewBackends creates a new backend from a raw config structure
@@ -67,7 +69,8 @@ func (b Backend) PollTime() time.Duration {
 // PollAction implements Pollable for Backend.
 // If the values in the discovery service have changed since the last run,
 // we fire the on change handler.
-func (b *Backend) PollAction() {
+func (b *Backend) PollAction(reapLock *sync.RWMutex) {
+	b.reapLock = reapLock
 	if b.CheckForUpstreamChanges() {
 		b.OnChange()
 	}
@@ -88,5 +91,5 @@ func (b *Backend) CheckForUpstreamChanges() bool {
 
 // OnChange runs the backend's onChange command, returning the results
 func (b *Backend) OnChange() error {
-	return commands.RunWithTimeout(b.onChangeCmd)
+	return commands.RunWithTimeout(b.onChangeCmd, b.reapLock)
 }

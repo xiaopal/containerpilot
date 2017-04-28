@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/joyent/containerpilot/commands"
@@ -114,7 +115,7 @@ func parseCoprocessRestarts(coprocess *Coprocess) error {
 }
 
 // Start runs the coprocess
-func (c *Coprocess) Start() {
+func (c *Coprocess) Start(reapLock *sync.RWMutex) {
 	log.Debugf("coprocess[%s].Start", c.Name)
 
 	// always reset restartsRemain when we load the config
@@ -124,8 +125,8 @@ func (c *Coprocess) Start() {
 			c.restartsRemain <= haltRestarts {
 			break
 		}
-		if code, err := commands.RunAndWait(c.cmd); err != nil {
-			log.Errorf("coprocess[%s] exited (%s): %s", c.Name, code, err)
+		if code, err := commands.RunAndWait(c.cmd, reapLock); err != nil {
+			log.Errorf("coprocess[%s] exited (%v): %s", c.Name, code, err)
 		}
 		log.Debugf("coprocess[%s] exited", c.Name)
 		if !c.restart {

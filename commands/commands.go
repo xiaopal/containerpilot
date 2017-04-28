@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -27,6 +28,7 @@ type Command struct {
 	ticker          *time.Ticker
 	logger          io.WriteCloser
 	logFields       log.Fields
+	reapLock        *sync.RWMutex
 }
 
 // NewCommand parses JSON config into a Command
@@ -65,11 +67,15 @@ func getTimeout(timeoutFmt string) (time.Duration, error) {
 }
 
 // RunAndWait runs the given command and blocks until completed
-func RunAndWait(c *Command) (int, error) {
+func RunAndWait(c *Command, reapLock *sync.RWMutex) (int, error) {
 	if c == nil {
 		// sometimes this will be ok but we should return an error
 		// anyway in case the caller cares
 		return 1, errors.New("Command for RunAndWait was nil")
+	}
+	if reapLock != nil {
+		reapLock.RLock()
+		defer reapLock.RUnlock()
 	}
 	log.Debugf("%s.RunAndWait start", c.Name)
 	c.setUpCmd()
@@ -111,11 +117,15 @@ func RunAndWait(c *Command) (int, error) {
 
 // RunAndWaitForOutput runs the given command and blocks until
 // completed, then returns the stdout
-func RunAndWaitForOutput(c *Command) (string, error) {
+func RunAndWaitForOutput(c *Command, reapLock *sync.RWMutex) (string, error) {
 	if c == nil {
 		// sometimes this will be ok but we should return an error
 		// anyway in case the caller cares
 		return "", errors.New("Command for RunAndWaitForOutput was nil")
+	}
+	if reapLock != nil {
+		reapLock.RLock()
+		defer reapLock.RUnlock()
 	}
 	log.Debugf("%s.RunAndWaitForOutput start", c.Name)
 	c.setUpCmd()
@@ -135,11 +145,15 @@ func RunAndWaitForOutput(c *Command) (string, error) {
 
 // RunWithTimeout runs the given command and blocks until completed
 // or until the timeout expires
-func RunWithTimeout(c *Command) error {
+func RunWithTimeout(c *Command, reapLock *sync.RWMutex) error {
 	if c == nil {
 		// sometimes this will be ok but we should return an error
 		// anyway in case the caller cares
 		return errors.New("Command for RunWithTimeout was nil")
+	}
+	if reapLock != nil {
+		reapLock.RLock()
+		defer reapLock.RUnlock()
 	}
 	log.Debugf("%s.RunWithTimeout start", c.Name)
 	c.setUpCmd()

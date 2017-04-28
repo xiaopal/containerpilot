@@ -46,6 +46,7 @@ type App struct {
 	QuitChannels   []chan bool
 	maintModeLock  *sync.RWMutex
 	signalLock     *sync.RWMutex
+	reapLock       *sync.RWMutex
 	paused         bool
 	ConfigFlag     string
 }
@@ -150,8 +151,9 @@ func getEnvVarNameFromService(service string) string {
 // Run starts the application and blocks until finished
 func (a *App) Run() {
 	// Set up handlers for polling and to accept signal interrupts
+	var reapLock sync.RWMutex
 	if 1 == os.Getpid() {
-		reapChildren()
+		reapChildren(&reapLock)
 	}
 	args := getArgs(flag.Args())
 	cmd, err := commands.NewCommand(args, "0", nil)
@@ -159,12 +161,13 @@ func (a *App) Run() {
 		log.Errorf("Unable to parse command arguments: %v", err)
 	}
 	a.Command = cmd
+	a.reapLock = &reapLock
 
 	a.handleSignals()
 
 	if a.PreStartCmd != nil {
 		// Run the preStart handler, if any, and exit if it returns an error
-		if code, err := commands.RunAndWait(a.PreStartCmd); err != nil || code != 0 {
+		if code, err := commands.RunAndWait(a.PreStartCmd, nil); err != nil || code != 0 {
 			os.Exit(code)
 		}
 	}
@@ -176,13 +179,13 @@ func (a *App) Run() {
 		// Run our main application and capture its stdout/stderr.
 		// This will block until the main application exits and then os.Exit
 		// with the exit code of that application.
-		code, err := commands.RunAndWait(a.Command)
+		code, err := commands.RunAndWait(a.Command, nil)
 		if err != nil {
 			log.Println(err)
 		}
 		// Run the PostStop handler, if any, and exit if it returns an error
 		if a.PostStopCmd != nil {
-			if postStopCode, err := commands.RunAndWait(a.PostStopCmd); err != nil {
+			if postStopCode, err := commands.RunAndWait(a.PostStopCmd, nil); err != nil {
 				os.Exit(postStopCode)
 			}
 		}
@@ -240,7 +243,7 @@ func (a *App) Terminate() {
 
 	// Run and wait for preStop command to exit (continues
 	// unconditionally so we don't worry about returned errors here)
-	commands.RunAndWait(a.PreStopCmd)
+	commands.RunAndWait(a.PreStopCmd, a.reapLock)
 	if a.Command == nil || a.Command.Cmd == nil ||
 		a.Command.Cmd.Process == nil {
 		// Not managing the process, so don't do anything
@@ -351,7 +354,7 @@ func (a *App) handlePolling() {
 
 func (a *App) handleCoprocesses() {
 	for _, coprocess := range a.Coprocesses {
-		go coprocess.Start()
+		go coprocess.Start(a.reapLock)
 	}
 }
 

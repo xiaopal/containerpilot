@@ -36,7 +36,7 @@ func TestSensorPollAction(t *testing.T) {
 			Help:      "help",
 		})}
 	prometheus.MustRegister(sensor.collector)
-	sensor.PollAction()
+	sensor.PollAction(nil)
 	resp := getFromTestServer(t, testServer)
 	if strings.Count(resp, "telemetry_sensors_TestSensorPollAction 42") != 1 {
 		t.Fatalf("Failed to get match for sensor in response: %s", resp)
@@ -46,13 +46,13 @@ func TestSensorPollAction(t *testing.T) {
 func TestSensorBadPollAction(t *testing.T) {
 	cmd, _ := commands.NewCommand("./testdata/doesNotExist.sh", "0", nil)
 	sensor := &Sensor{checkCmd: cmd}
-	sensor.PollAction() // logs but no crash
+	sensor.PollAction(nil) // logs but no crash
 }
 
 func TestSensorBadRecord(t *testing.T) {
 	cmd, _ := commands.NewCommand("./testdata/test.sh doStuff --debug", "0", nil)
 	sensor := &Sensor{checkCmd: cmd}
-	sensor.PollAction() // logs but no crash
+	sensor.PollAction(nil) // logs but no crash
 }
 
 func TestSensorRecordCounter(t *testing.T) {
@@ -218,21 +218,21 @@ func TestSensorObserve(t *testing.T) {
 
 	cmd1, _ := commands.NewCommand("./testdata/test.sh doStuff --debug", "1s", nil)
 	sensor := &Sensor{checkCmd: cmd1}
-	if val, err := sensor.observe(); err != nil {
+	if val, err := sensor.observe(nil); err != nil {
 		t.Fatalf("Unexpected error from sensor check: %s", err)
 	} else if val != "Running doStuff with args: --debug\n" {
 		t.Fatalf("Unexpected output from sensor check: %s", val)
 	}
 
 	// Ensure we can run it more than once
-	if _, err := sensor.observe(); err != nil {
+	if _, err := sensor.observe(nil); err != nil {
 		t.Fatalf("Unexpected error from sensor check (x2): %s", err)
 	}
 
 	// Ensure bad commands return error
 	cmd2, _ := commands.NewCommand("./testdata/doesNotExist.sh", "0", nil)
 	sensor = &Sensor{checkCmd: cmd2}
-	if val, err := sensor.observe(); err == nil {
+	if val, err := sensor.observe(nil); err == nil {
 		t.Fatalf("Expected error from sensor check but got %s", val)
 	} else if err.Error() != "fork/exec ./testdata/doesNotExist.sh: no such file or directory" {
 		t.Fatalf("Unexpected error from invalid sensor check: %s", err)

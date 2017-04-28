@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -146,8 +147,8 @@ func (s Service) PollTime() time.Duration {
 // PollAction implements Pollable for Service.
 // So long as we don't get an error back from CheckHealth, we write a TTL
 // health check to the discovery service.
-func (s *Service) PollAction() {
-	if err := s.CheckHealth(); err == nil {
+func (s *Service) PollAction(reapLock *sync.RWMutex) {
+	if err := s.CheckHealth(reapLock); err == nil {
 		s.SendHeartbeat()
 	}
 }
@@ -175,12 +176,12 @@ func (s *Service) Deregister() {
 }
 
 // CheckHealth runs the service's health command, returning the results
-func (s *Service) CheckHealth() error {
+func (s *Service) CheckHealth(reapLock *sync.RWMutex) error {
 
 	// if we have a valid Service but there's no health check
 	// set, assume it always passes (ex. telemetry service).
 	if s.healthCheckCmd == nil {
 		return nil
 	}
-	return commands.RunWithTimeout(s.healthCheckCmd)
+	return commands.RunWithTimeout(s.healthCheckCmd, reapLock)
 }
