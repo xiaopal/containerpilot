@@ -17,7 +17,7 @@ func TestJobRunSafeClose(t *testing.T) {
 	cfg := &Config{Name: "myjob", Exec: "true"}
 	cfg.Validate(noop)
 	job := NewJob(cfg)
-	job.Run(bus)
+	job.Run(bus, nil)
 	job.Bus.Publish(events.GlobalStartup)
 	job.Close()
 	ds.Close()
@@ -50,7 +50,7 @@ func TestJobRunStartupTimeout(t *testing.T) {
 		When: &WhenConfig{Source: "never", Once: "startup", Timeout: "100ms"}}
 	cfg.Validate(noop)
 	job := NewJob(cfg)
-	job.Run(bus)
+	job.Run(bus, nil)
 	job.Bus.Publish(events.GlobalStartup)
 
 	// note that we can't send a .Close() after this b/c we've timed out
@@ -94,7 +94,7 @@ func TestJobRunRestarts(t *testing.T) {
 		cfg.Validate(noop)
 		job := NewJob(cfg)
 
-		job.Run(bus)
+		job.Run(bus, nil)
 		job.Bus.Publish(events.GlobalStartup)
 		exitOk := events.Event{Code: events.ExitSuccess, Source: "myjob"}
 		var got = 0
@@ -130,7 +130,7 @@ func TestJobRunPeriodic(t *testing.T) {
 	}
 	cfg.Validate(noop)
 	job := NewJob(cfg)
-	job.Run(bus)
+	job.Run(bus, nil)
 	ds.Run(time.Duration(100 * time.Millisecond))
 	job.Bus.Publish(events.GlobalStartup)
 	exitOk := events.Event{Code: events.ExitSuccess, Source: "myjob"}

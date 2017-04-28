@@ -115,7 +115,7 @@ func runtestCommandRunAndWaitForOutput(cmd *Command, count int) (string, map[eve
 	bus := events.NewEventBus()
 	ds := mocks.NewDebugSubscriber(bus, count)
 	ds.Run(0)
-	out := cmd.RunAndWaitForOutput(context.Background(), bus)
+	out := cmd.RunAndWaitForOutput(context.Background(), bus, nil)
 	ds.Close()
 	got := map[events.Event]int{}
 	for _, result := range ds.Results {
@@ -129,7 +129,7 @@ func runtestCommandRun(cmd *Command, count int) map[events.Event]int {
 	ds := mocks.NewDebugSubscriber(bus, count)
 	ds.Run(200 * time.Millisecond)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	cmd.Run(ctx, bus)
+	cmd.Run(ctx, bus, nil)
 	defer cancel()
 	ds.Close()
 	got := map[events.Event]int{}

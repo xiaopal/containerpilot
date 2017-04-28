@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -26,6 +27,7 @@ type Job struct {
 	Service          *discovery.ServiceDefinition
 	healthCheckExec  *commands.Command
 	healthCheckName  string
+	reapLock         *sync.RWMutex
 
 	// starting events
 	startEvent   events.Event
@@ -108,14 +110,14 @@ func (job *Job) Deregister() {
 // HealthCheck runs the Job's health check executable
 func (job *Job) HealthCheck(ctx context.Context) {
 	if job.healthCheckExec != nil {
-		job.healthCheckExec.Run(ctx, job.Bus)
+		job.healthCheckExec.Run(ctx, job.Bus, job.reapLock)
 	}
 }
 
 // StartJob runs the Job's executable
 func (job *Job) StartJob(ctx context.Context) {
 	if job.exec != nil {
-		job.exec.Run(ctx, job.Bus)
+		job.exec.Run(ctx, job.Bus, job.reapLock)
 	}
 }
 
@@ -131,10 +133,11 @@ func (job *Job) Kill() {
 }
 
 // Run executes the event loop for the Job
-func (job *Job) Run(bus *events.EventBus) {
+func (job *Job) Run(bus *events.EventBus, reapLock *sync.RWMutex) {
 
 	job.Subscribe(bus)
 	job.Bus = bus
+	job.reapLock = reapLock
 	ctx, cancel := context.WithCancel(context.Background())
 
 	runEverySource := fmt.Sprintf("%s.run-every", job.Name)

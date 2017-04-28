@@ -64,7 +64,7 @@ func TestMaintenanceSignal(t *testing.T) {
 func TestTerminateSignal(t *testing.T) {
 	app := getSignalTestConfig(t)
 	bus := app.Bus
-	app.Jobs[0].Run(bus)
+	app.Jobs[0].Run(bus, nil)
 
 	ds := mocks.NewDebugSubscriber(bus, 4)
 	ds.Run(0)

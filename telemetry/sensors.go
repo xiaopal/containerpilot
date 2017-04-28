@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -35,6 +36,7 @@ type Sensor struct {
 	exec      *commands.Command
 	poll      time.Duration
 	collector prometheus.Collector
+	reapLock  *sync.RWMutex
 
 	events.EventHandler // Event handling
 }
@@ -57,7 +59,7 @@ func NewSensor(cfg *SensorConfig) *Sensor {
 func (sensor *Sensor) Observe(ctx context.Context) {
 	// TODO v3: this should be replaced with the async Run once
 	// the control plane is available for Sensors to POST to
-	output := sensor.exec.RunAndWaitForOutput(ctx, sensor.Bus)
+	output := sensor.exec.RunAndWaitForOutput(ctx, sensor.Bus, sensor.reapLock)
 	sensor.record(output)
 }
 
@@ -83,9 +85,10 @@ func (sensor *Sensor) record(metricValue string) {
 }
 
 // Run executes the event loop for the Sensor
-func (sensor *Sensor) Run(bus *events.EventBus) {
+func (sensor *Sensor) Run(bus *events.EventBus, reapLock *sync.RWMutex) {
 	sensor.Subscribe(bus)
 	sensor.Bus = bus
+	sensor.reapLock = reapLock
 	ctx, cancel := context.WithCancel(context.Background())
 
 	pollSource := fmt.Sprintf("%s-sensor-poll", sensor.Name)

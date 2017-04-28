@@ -52,7 +52,7 @@ func NewCommand(rawArgs interface{}, timeout time.Duration, fields log.Fields) (
 // Run creates an exec.Cmd for the Command and runs it asynchronously.
 // If the parent context is closed/canceled this will terminate the
 // child process and do any cleanup we need.
-func (c *Command) Run(pctx context.Context, bus *events.EventBus) {
+func (c *Command) Run(pctx context.Context, bus *events.EventBus, reapLock *sync.RWMutex) {
 	if c == nil {
 		log.Debugf("nothing to run for %s", c.Name)
 		return
@@ -60,6 +60,10 @@ func (c *Command) Run(pctx context.Context, bus *events.EventBus) {
 	// we should never have more than one instance running for any
 	// realistic configuration but this ensures that's the case
 	c.lock.Lock()
+	if reapLock != nil {
+		reapLock.RLock()
+		defer reapLock.RUnlock()
+	}
 	log.Debugf("%s.Run start", c.Name)
 	c.setUpCmd()
 	c.Cmd.Stdout = c.logger
@@ -117,7 +121,7 @@ func (c *Command) Run(pctx context.Context, bus *events.EventBus) {
 // returns a string of the stdout
 // TODO v3: remove this once the control plane is available for Sensors (the
 // only caller) to send metrics to
-func (c *Command) RunAndWaitForOutput(pctx context.Context, bus *events.EventBus) string {
+func (c *Command) RunAndWaitForOutput(pctx context.Context, bus *events.EventBus, reapLock *sync.RWMutex) string {
 	if c == nil {
 		log.Debugf("nothing to run for %s", c.Name)
 		return ""
@@ -125,6 +129,11 @@ func (c *Command) RunAndWaitForOutput(pctx context.Context, bus *events.EventBus
 	// we should never have more than one instance running for any
 	// realistic configuration but this ensures that's the case
 	c.lock.Lock()
+	if reapLock != nil {
+		reapLock.RLock()
+		defer reapLock.RUnlock()
+	}
+
 	log.Debugf("%s.Run start", c.Name)
 	c.setUpCmd()
 	var (

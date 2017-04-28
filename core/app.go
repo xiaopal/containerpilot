@@ -41,6 +41,7 @@ type App struct {
 	paused        bool
 	ConfigFlag    string
 	Bus           *events.EventBus
+	reapLock      *sync.RWMutex
 }
 
 // EmptyApp creates an empty application
@@ -147,10 +148,12 @@ func getEnvVarNameFromService(service string) string {
 // Run starts the application and blocks until finished
 func (a *App) Run() {
 	// Set up handlers for polling and to accept signal interrupts
+	var reapLock sync.RWMutex
 	if 1 == os.Getpid() {
-		reapChildren()
+		reapChildren(&reapLock)
 	}
 	for {
+		a.reapLock = &reapLock
 		a.ControlServer.Serve()
 		a.Bus = events.NewEventBus()
 		a.handleSignals()
@@ -261,14 +264,14 @@ func (a *App) reload() error {
 func (a *App) handlePolling() {
 
 	for _, job := range a.Jobs {
-		job.Run(a.Bus)
+		job.Run(a.Bus, a.reapLock)
 	}
 	for _, watch := range a.Watches {
 		watch.Run(a.Bus)
 	}
 	if a.Telemetry != nil {
 		for _, sensor := range a.Telemetry.Sensors {
-			sensor.Run(a.Bus)
+			sensor.Run(a.Bus, a.reapLock)
 		}
 		a.Telemetry.Serve()
 	}
